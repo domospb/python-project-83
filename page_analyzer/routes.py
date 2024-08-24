@@ -1,34 +1,35 @@
 from flask import render_template, request, redirect, url_for, flash
-from page_analyzer.app import app, get_cursor, get_connection
 from urllib.parse import urlparse
 import validators
 import psycopg2
 import sqlite3
+from page_analyzer.app import app, get_cursor, get_connection
 
 
 def execute_query(cursor, query, params=None):
+    """Execute a database query with proper error handling."""
+    if isinstance(cursor, psycopg2.extensions.cursor):
+        query = query.replace('?', '%s')
+
     try:
         if params:
             cursor.execute(query, params)
         else:
             cursor.execute(query)
-    except (sqlite3.OperationalError, psycopg2.ProgrammingError) as e:
-        # If the error is due to SQLite vs PostgreSQL syntax differences
-        if "?" in query and isinstance(e, psycopg2.ProgrammingError):
-            # Replace '?' with '%s' for PostgreSQL
-            modified_query = query.replace('?', '%s')
-            cursor.execute(modified_query, params)
-        else:
-            raise
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        raise
 
 
 @app.route('/')
 def index():
+    """Render the index page."""
     return render_template('index.html')
 
 
 @app.route('/urls', methods=['POST'])
 def add_url():
+    """Add a new URL to the database."""
     url = request.form.get('url')
     parsed_url = urlparse(url)
     normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
@@ -60,6 +61,10 @@ def add_url():
         existing_url = cursor.fetchone()
         flash('Страница уже существует', 'info')
         return redirect(url_for('url_info', id=existing_url[0]))
+    except Exception as e:
+        conn.rollback()
+        flash(f'Произошла ошибка: {str(e)}', 'danger')
+        return render_template('index.html', url=url), 500
     finally:
         cursor.close()
         conn.close()
@@ -67,6 +72,7 @@ def add_url():
 
 @app.route('/urls/<int:id>')
 def url_info(id):
+    """Display information about a specific URL."""
     conn = get_connection()
     cursor = get_cursor()
     execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
@@ -78,6 +84,7 @@ def url_info(id):
 
 @app.route('/urls')
 def urls_list():
+    """Display a list of all URLs."""
     conn = get_connection()
     cursor = get_cursor()
     execute_query(cursor, 'SELECT * FROM urls ORDER BY created_at DESC')
