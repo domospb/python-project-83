@@ -1,6 +1,10 @@
 install:
 	poetry install
 
+setup:
+    make install
+    psql -d ${DATABASE_URL} -f database.sql
+
 lint:
 	poetry run flake8 page_analyzer/
 
