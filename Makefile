@@ -2,7 +2,7 @@ install:
 	poetry install
 
 setup:
-    make install
+    poetry install
     psql -d ${DATABASE_URL} -f database.sql
 
 lint:
