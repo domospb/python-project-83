@@ -1,5 +1,6 @@
-from flask import Flask
-
-app = Flask(__name__)
-
+from .app import app
 from page_analyzer import routes  # noqa
+
+__all__ = [
+    "app",
+]
