@@ -25,15 +25,15 @@ def add_url():
     cursor = get_cursor()
 
     try:
-        cursor.execute('INSERT INTO urls (name) VALUES (?) RETURNING id',
+        cursor.execute('INSERT INTO urls (name) VALUES (%s) RETURNING id',
                        (normalized_url,))
         url_id = cursor.fetchone()[0]
         conn.commit()
         flash('Страница успешно добавлена', 'success')
         return redirect(url_for('url_info', id=url_id))
-    except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
+    except psycopg2.errors.UniqueViolation:
         conn.rollback()
-        cursor.execute('SELECT id FROM urls WHERE name = ?',
+        cursor.execute('SELECT id FROM urls WHERE name = %s',
                        (normalized_url,))
         existing_url = cursor.fetchone()
         flash('Страница уже существует', 'info')
@@ -41,7 +41,6 @@ def add_url():
     finally:
         cursor.close()
         conn.close()
-
 
 @app.route('/urls/<int:id>')
 def url_info(id):
