@@ -3,7 +3,7 @@ from page_analyzer.app import app, get_cursor, get_connection
 from urllib.parse import urlparse
 import validators
 import psycopg2
-import sqlite3
+# import sqlite3
 
 
 @app.route('/')
@@ -41,6 +41,7 @@ def add_url():
     finally:
         cursor.close()
         conn.close()
+
 
 @app.route('/urls/<int:id>')
 def url_info(id):
