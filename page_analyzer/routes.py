@@ -3,7 +3,23 @@ from page_analyzer.app import app, get_cursor, get_connection
 from urllib.parse import urlparse
 import validators
 import psycopg2
-# import sqlite3
+import sqlite3
+
+
+def execute_query(cursor, query, params=None):
+    try:
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+    except (sqlite3.OperationalError, psycopg2.ProgrammingError) as e:
+        # If the error is due to SQLite vs PostgreSQL syntax differences
+        if "?" in query and isinstance(e, psycopg2.ProgrammingError):
+            # Replace '?' with '%s' for PostgreSQL
+            modified_query = query.replace('?', '%s')
+            cursor.execute(modified_query, params)
+        else:
+            raise
 
 
 @app.route('/')
@@ -25,16 +41,22 @@ def add_url():
     cursor = get_cursor()
 
     try:
-        cursor.execute('INSERT INTO urls (name) VALUES (%s) RETURNING id',
-                       (normalized_url,))
+        execute_query(
+            cursor,
+            'INSERT INTO urls (name) VALUES (?) RETURNING id',
+            (normalized_url,)
+        )
         url_id = cursor.fetchone()[0]
         conn.commit()
         flash('Страница успешно добавлена', 'success')
         return redirect(url_for('url_info', id=url_id))
-    except psycopg2.errors.UniqueViolation:
+    except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
         conn.rollback()
-        cursor.execute('SELECT id FROM urls WHERE name = %s',
-                       (normalized_url,))
+        execute_query(
+            cursor,
+            'SELECT id FROM urls WHERE name = ?',
+            (normalized_url,)
+        )
         existing_url = cursor.fetchone()
         flash('Страница уже существует', 'info')
         return redirect(url_for('url_info', id=existing_url[0]))
@@ -47,7 +69,7 @@ def add_url():
 def url_info(id):
     conn = get_connection()
     cursor = get_cursor()
-    cursor.execute('SELECT * FROM urls WHERE id = ?', (id,))
+    execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
     url = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -58,7 +80,7 @@ def url_info(id):
 def urls_list():
     conn = get_connection()
     cursor = get_cursor()
-    cursor.execute('SELECT * FROM urls ORDER BY created_at DESC')
+    execute_query(cursor, 'SELECT * FROM urls ORDER BY created_at DESC')
     urls = cursor.fetchall()
     cursor.close()
     conn.close()
