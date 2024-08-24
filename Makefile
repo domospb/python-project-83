@@ -2,8 +2,8 @@ install:
 	poetry install
 
 setup:
-    poetry install
-    psql -d ${DATABASE_URL} -f database.sql
+	make install
+	psql -d ${DATABASE_URL} -f database.sql
 
 lint:
 	poetry run flake8 page_analyzer/
@@ -14,4 +14,3 @@ dev:
 PORT ?= 8000
 start:
 	poetry run gunicorn -w 5 -b 0.0.0.0:$(PORT) page_analyzer:app
-
