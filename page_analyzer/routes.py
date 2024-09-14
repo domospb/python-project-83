@@ -69,7 +69,7 @@ def add_url():
 def url_info(id):
     """Display information about a specific URL."""
     with get_connection() as conn:
-        with conn.cursor() as cursor:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
             url = cursor.fetchone()
     return render_template('url.html', url=url)
@@ -79,7 +79,7 @@ def url_info(id):
 def urls_list():
     """Display a list of all URLs."""
     with get_connection() as conn:
-        with conn.cursor() as cursor:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor,
                           'SELECT * FROM urls ORDER BY created_at DESC')
             urls = cursor.fetchall()
