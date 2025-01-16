@@ -17,9 +17,9 @@ jobs:
           with:
             python-version: "3.10"
         
-        - name: Install poetry
+        - name: Install uv
           run: |
-            pip install poetry
+            pip install uv
   
         - name: Install deps
           run: |
