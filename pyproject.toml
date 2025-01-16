@@ -19,3 +19,9 @@ dependencies = [
     "psycopg2-binary>=2.9.9,<3",
     "validators>=0.33.0,<0.34",
 ]
+
+[tool.hatch.build.targets.sdist]
+include = ["page_analyzer"]
+
+[tool.hatch.build.targets.wheel]
+include = ["page_analyzer"]
