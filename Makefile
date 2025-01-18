@@ -2,7 +2,7 @@ install:
 	uv sync
 
 setup:
-    pip3 install uv
+	pip3 install uv
 	make install
 	psql -d ${DATABASE_URL} -f database.sql
 
