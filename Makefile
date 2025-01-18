@@ -2,7 +2,7 @@ install:
 	uv sync
 
 setup:
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    pip3 install uv
 	make install
 	psql -d ${DATABASE_URL} -f database.sql
 
