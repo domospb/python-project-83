@@ -2,6 +2,7 @@ from flask import render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import validators
 import psycopg2
+import psycopg2.extras
 import sqlite3
 from page_analyzer.app import app, get_connection
 
@@ -64,7 +65,6 @@ def add_url():
                 flash(f'Произошла ошибка: {str(e)}', 'danger')
                 return render_template('index.html', url=url), 500
 
-
 @app.route('/urls/<int:id>')
 def url_info(id):
     """Display information about a specific URL."""
@@ -72,7 +72,36 @@ def url_info(id):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
             url = cursor.fetchone()
-    return render_template('url.html', url=url)
+            
+            # Получаем все проверки для данного URL
+            execute_query(
+                cursor,
+                'SELECT * FROM url_checks WHERE url_id = ? ORDER BY created_at DESC',
+                (id,)
+            )
+            checks = cursor.fetchall()
+            
+    return render_template('url.html', url=url, checks=checks)
+
+
+@app.route('/urls/<int:id>/checks', methods=['POST'])
+def check_url(id):
+    """Create a new check for the specified URL."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            try:
+                execute_query(
+                    cursor,
+                    'INSERT INTO url_checks (url_id) VALUES (?) RETURNING id',
+                    (id,)
+                )
+                conn.commit()
+                flash('Страница успешно проверена', 'success')
+            except Exception as e:
+                conn.rollback()
+                flash(f'Произошла ошибка при проверке страницы: {str(e)}', 'danger')
+    
+    return redirect(url_for('url_info', id=id))
 
 
 @app.route('/urls')
@@ -80,7 +109,16 @@ def urls_list():
     """Display a list of all URLs."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-            execute_query(cursor,
-                          'SELECT * FROM urls ORDER BY created_at DESC')
+            execute_query(cursor, '''
+                SELECT urls.*, 
+                       COALESCE(latest_checks.created_at, NULL) as last_check_at
+                FROM urls
+                LEFT JOIN (
+                    SELECT url_id, MAX(created_at) as created_at
+                    FROM url_checks
+                    GROUP BY url_id
+                ) latest_checks ON urls.id = latest_checks.url_id
+                ORDER BY urls.created_at DESC
+            ''')
             urls = cursor.fetchall()
     return render_template('urls.html', urls=urls)
