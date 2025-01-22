@@ -65,6 +65,7 @@ def add_url():
                 flash(f'Произошла ошибка: {str(e)}', 'danger')
                 return render_template('index.html', url=url), 500
 
+
 @app.route('/urls/<int:id>')
 def url_info(id):
     """Display information about a specific URL."""
@@ -72,15 +73,16 @@ def url_info(id):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
             url = cursor.fetchone()
-            
-            # Получаем все проверки для данного URL
+
             execute_query(
                 cursor,
-                'SELECT * FROM url_checks WHERE url_id = ? ORDER BY created_at DESC',
+                '''SELECT * FROM url_checks
+                   WHERE url_id = ?
+                   ORDER BY created_at DESC''',
                 (id,)
             )
             checks = cursor.fetchall()
-            
+
     return render_template('url.html', url=url, checks=checks)
 
 
@@ -99,8 +101,9 @@ def check_url(id):
                 flash('Страница успешно проверена', 'success')
             except Exception as e:
                 conn.rollback()
-                flash(f'Произошла ошибка при проверке страницы: {str(e)}', 'danger')
-    
+                message = 'Произошла ошибка при проверке страницы: {}'
+                flash(message.format(str(e)), 'danger')
+
     return redirect(url_for('url_info', id=id))
 
 
@@ -110,8 +113,8 @@ def urls_list():
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, '''
-                SELECT urls.*, 
-                       COALESCE(latest_checks.created_at, NULL) as last_check_at
+                SELECT urls.*,
+                    COALESCE(latest_checks.created_at, NULL) as last_check_at
                 FROM urls
                 LEFT JOIN (
                     SELECT url_id, MAX(created_at) as created_at
