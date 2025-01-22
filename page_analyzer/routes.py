@@ -4,6 +4,7 @@ import validators
 import psycopg2
 import psycopg2.extras
 import sqlite3
+import requests
 from page_analyzer.app import app, get_connection
 
 
@@ -91,18 +92,38 @@ def check_url(id):
     """Create a new check for the specified URL."""
     with get_connection() as conn:
         with conn.cursor() as cursor:
+            # Получаем URL для проверки
+            execute_query(
+                cursor,
+                'SELECT name FROM urls WHERE id = ?',
+                (id,)
+            )
+            url = cursor.fetchone()
+            if not url:
+                flash('Страница не найдена', 'danger')
+                return redirect(url_for('urls_list'))
+
             try:
+                response = requests.get(url[0])
+                response.raise_for_status()  # Проверка статуса ответа
+                status_code = response.status_code
+
+                # Создаем запись о проверке
                 execute_query(
                     cursor,
-                    'INSERT INTO url_checks (url_id) VALUES (?) RETURNING id',
-                    (id,)
+                    '''INSERT INTO url_checks (url_id, status_code)
+                       VALUES (?, ?)''',
+                    (id, status_code)
                 )
                 conn.commit()
                 flash('Страница успешно проверена', 'success')
+
+            except requests.RequestException:
+                conn.rollback()
+                flash('Произошла ошибка при проверке', 'danger')
             except Exception as e:
                 conn.rollback()
-                message = 'Произошла ошибка при проверке страницы: {}'
-                flash(message.format(str(e)), 'danger')
+                flash('Произошла ошибка при проверке', 'danger')
 
     return redirect(url_for('url_info', id=id))
 
@@ -113,13 +134,18 @@ def urls_list():
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, '''
-                SELECT urls.*,
-                    COALESCE(latest_checks.created_at, NULL) as last_check_at
+                SELECT 
+                    urls.*, 
+                    latest_checks.created_at as last_check_at,
+                    latest_checks.status_code as last_status_code
                 FROM urls
                 LEFT JOIN (
-                    SELECT url_id, MAX(created_at) as created_at
+                    SELECT DISTINCT ON (url_id)
+                        url_id,
+                        created_at,
+                        status_code
                     FROM url_checks
-                    GROUP BY url_id
+                    ORDER BY url_id, created_at DESC
                 ) latest_checks ON urls.id = latest_checks.url_id
                 ORDER BY urls.created_at DESC
             ''')
