@@ -5,6 +5,7 @@ import psycopg2
 import psycopg2.extras
 import sqlite3
 import requests
+from bs4 import BeautifulSoup
 from page_analyzer.app import app, get_connection
 
 
@@ -20,6 +21,23 @@ def execute_query(cursor, query, params=None):
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise
+
+
+def get_seo_data(html_content):
+    """Extract SEO data from HTML content."""
+    soup = BeautifulSoup(html_content, 'html.parser')
+    h1_tag = soup.find('h1')
+    title_tag = soup.find('title')
+    description_tag = soup.find('meta', attrs={'name': 'description'})
+
+    return {
+        'h1': h1_tag.text.strip() if h1_tag else None,
+        'title': title_tag.text.strip() if title_tag else None,
+        'description': (
+            description_tag.get('content', '').strip()
+            if description_tag else None
+        )
+    }
 
 
 @app.route('/')
@@ -67,26 +85,6 @@ def add_url():
                 return render_template('index.html', url=url), 500
 
 
-@app.route('/urls/<int:id>')
-def url_info(id):
-    """Display information about a specific URL."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-            execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
-            url = cursor.fetchone()
-
-            execute_query(
-                cursor,
-                '''SELECT * FROM url_checks
-                   WHERE url_id = ?
-                   ORDER BY created_at DESC''',
-                (id,)
-            )
-            checks = cursor.fetchall()
-
-    return render_template('url.html', url=url, checks=checks)
-
-
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
     """Create a new check for the specified URL."""
@@ -105,15 +103,20 @@ def check_url(id):
 
             try:
                 response = requests.get(url[0])
-                response.raise_for_status()  # Проверка статуса ответа
+                response.raise_for_status()
                 status_code = response.status_code
+
+                # Извлекаем SEO-данные
+                seo_data = get_seo_data(response.text)
 
                 # Создаем запись о проверке
                 execute_query(
                     cursor,
-                    '''INSERT INTO url_checks (url_id, status_code)
-                       VALUES (?, ?)''',
-                    (id, status_code)
+                    '''INSERT INTO url_checks
+                       (url_id, status_code, h1, title, description)
+                       VALUES (?, ?, ?, ?, ?)''',
+                    (id, status_code, seo_data['h1'],
+                     seo_data['title'], seo_data['description'])
                 )
                 conn.commit()
                 flash('Страница успешно проверена', 'success')
@@ -121,11 +124,31 @@ def check_url(id):
             except requests.RequestException:
                 conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
-            except Exception:  # Убрали неиспользуемую переменную e
+            except Exception:
                 conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
 
     return redirect(url_for('url_info', id=id))
+
+
+@app.route('/urls/<int:id>')
+def url_info(id):
+    """Display information about a specific URL."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
+            url = cursor.fetchone()
+
+            execute_query(
+                cursor,
+                '''SELECT * FROM url_checks
+                   WHERE url_id = ?
+                   ORDER BY created_at DESC''',
+                (id,)
+            )
+            checks = cursor.fetchall()
+
+    return render_template('url.html', url=url, checks=checks)
 
 
 @app.route('/urls')
