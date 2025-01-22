@@ -121,7 +121,7 @@ def check_url(id):
             except requests.RequestException:
                 conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
-            except Exception as e:
+            except Exception:  # Убрали неиспользуемую переменную e
                 conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
 
@@ -134,8 +134,8 @@ def urls_list():
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             execute_query(cursor, '''
-                SELECT 
-                    urls.*, 
+                SELECT
+                    urls.*,
                     latest_checks.created_at as last_check_at,
                     latest_checks.status_code as last_status_code
                 FROM urls
