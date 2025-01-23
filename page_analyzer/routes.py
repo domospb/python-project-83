@@ -1,5 +1,7 @@
-from flask import (render_template, request, redirect,
-                  url_for, flash, make_response)
+from flask import (
+    render_template, request, redirect,
+    url_for, flash, make_response
+)
 from urllib.parse import urlparse
 import validators
 import psycopg2
@@ -51,7 +53,7 @@ def index():
 def add_url():
     """Add a new URL to the database."""
     url = request.form.get('url')
-    
+
     if not url:
         flash('URL обязателен', 'danger')
         return render_template('index.html'), 422
@@ -98,7 +100,7 @@ def check_url(id):
     try:
         cursor.execute('SELECT name FROM urls WHERE id = %s', (id,))
         url = cursor.fetchone()
-        
+
         if not url:
             flash('Страница не найдена', 'danger')
             return redirect(url_for('urls_list'))
@@ -106,9 +108,7 @@ def check_url(id):
         try:
             response = requests.get(url[0])
             response.raise_for_status()
-            
             seo_data = get_seo_data(response.text)
-            
             cursor.execute(
                 '''INSERT INTO url_checks
                    (url_id, status_code, h1, title, description)
