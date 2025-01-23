@@ -15,8 +15,6 @@ from page_analyzer.app import app, get_connection
 def execute_query(cursor, query, params=None):
     """Execute a database query with proper error handling."""
     try:
-        if isinstance(cursor, psycopg2.extensions.cursor):
-            query = query.replace('?', '%s')
         if params:
             cursor.execute(query, params)
         else:
@@ -70,8 +68,9 @@ def add_url():
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            'INSERT INTO urls (name) VALUES (%s) RETURNING id',
+        execute_query(
+            cursor,
+            'INSERT INTO urls (name) VALUES (?) RETURNING id',
             (normalized_url,)
         )
         url_id = cursor.fetchone()[0]
@@ -80,8 +79,9 @@ def add_url():
         return redirect(url_for('url_info', id=url_id))
     except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
         conn.rollback()
-        cursor.execute(
-            'SELECT id FROM urls WHERE name = %s',
+        execute_query(
+            cursor,
+            'SELECT id FROM urls WHERE name = ?',
             (normalized_url,)
         )
         existing_url = cursor.fetchone()
@@ -98,7 +98,7 @@ def check_url(id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute('SELECT name FROM urls WHERE id = %s', (id,))
+        execute_query(cursor, 'SELECT name FROM urls WHERE id = ?', (id,))
         url = cursor.fetchone()
 
         if not url:
@@ -109,10 +109,11 @@ def check_url(id):
             response = requests.get(url[0])
             response.raise_for_status()
             seo_data = get_seo_data(response.text)
-            cursor.execute(
+            execute_query(
+                cursor,
                 '''INSERT INTO url_checks
                    (url_id, status_code, h1, title, description)
-                   VALUES (%s, %s, %s, %s, %s)''',
+                   VALUES (?, ?, ?, ?, ?)''',
                 (id, response.status_code, seo_data['h1'],
                  seo_data['title'], seo_data['description'])
             )
@@ -136,16 +137,17 @@ def url_info(id):
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
-        cursor.execute('SELECT * FROM urls WHERE id = %s', (id,))
+        execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
         url = cursor.fetchone()
 
         if not url:
             flash('Страница не найдена', 'danger')
             return redirect(url_for('urls_list'))
 
-        cursor.execute(
+        execute_query(
+            cursor,
             '''SELECT * FROM url_checks
-               WHERE url_id = %s
+               WHERE url_id = ?
                ORDER BY created_at DESC''',
             (id,)
         )
@@ -162,7 +164,7 @@ def urls_list():
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
-        cursor.execute('''
+        execute_query(cursor, '''
             SELECT
                 urls.*,
                 latest_checks.created_at as last_check_at,
