@@ -1,44 +1,32 @@
-from flask import (
-    render_template, request, redirect,
-    url_for, flash, make_response
-)
+from flask import render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import validators
 import psycopg2
 import psycopg2.extras
 import sqlite3
 import requests
-from bs4 import BeautifulSoup
 from page_analyzer.app import app, get_connection
 
 
 def execute_query(cursor, query, params=None):
     """Execute a database query with proper error handling."""
     try:
-        if params:
-            cursor.execute(query, params)
+        if isinstance(cursor, sqlite3.Cursor):
+            # Для SQLite заменяем %s на ? и корректируем запросы
+            query = query.replace('%s', '?')
+            # Для RETURNING в SQLite
+            if 'RETURNING' in query.upper():
+                cursor.execute(query, params)
+                return cursor.lastrowid
         else:
-            cursor.execute(query)
+            # Для PostgreSQL заменяем ? на %s
+            query = query.replace('?', '%s')
+            cursor.execute(query, params)
+            if 'RETURNING' in query.upper():
+                return cursor.fetchone()[0]
     except Exception as e:
         print(f"Database error: {str(e)}")
         raise
-
-
-def get_seo_data(html_content):
-    """Extract SEO data from HTML content."""
-    soup = BeautifulSoup(html_content, 'html.parser')
-    h1_tag = soup.find('h1')
-    title_tag = soup.find('title')
-    description_tag = soup.find('meta', attrs={'name': 'description'})
-
-    return {
-        'h1': h1_tag.text.strip() if h1_tag else None,
-        'title': title_tag.text.strip() if title_tag else None,
-        'description': (
-            description_tag.get('content', '').strip()
-            if description_tag else None
-        )
-    }
 
 
 @app.route('/')
@@ -61,19 +49,16 @@ def add_url():
 
     if not validators.url(normalized_url) or len(normalized_url) > 255:
         flash('Некорректный URL', 'danger')
-        response = make_response(render_template('index.html', url=url))
-        response.status_code = 422
-        return response
+        return render_template('index.html', url=url), 422
 
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        execute_query(
+        url_id = execute_query(
             cursor,
             'INSERT INTO urls (name) VALUES (?) RETURNING id',
             (normalized_url,)
         )
-        url_id = cursor.fetchone()[0]
         conn.commit()
         flash('Страница успешно добавлена', 'success')
         return redirect(url_for('url_info', id=url_id))
@@ -84,9 +69,9 @@ def add_url():
             'SELECT id FROM urls WHERE name = ?',
             (normalized_url,)
         )
-        existing_url = cursor.fetchone()
+        url_id = cursor.fetchone()[0]
         flash('Страница уже существует', 'info')
-        return redirect(url_for('url_info', id=existing_url[0]))
+        return redirect(url_for('url_info', id=url_id))
     finally:
         cursor.close()
         conn.close()
@@ -108,14 +93,11 @@ def check_url(id):
         try:
             response = requests.get(url[0])
             response.raise_for_status()
-            seo_data = get_seo_data(response.text)
             execute_query(
                 cursor,
-                '''INSERT INTO url_checks
-                   (url_id, status_code, h1, title, description)
-                   VALUES (?, ?, ?, ?, ?)''',
-                (id, response.status_code, seo_data['h1'],
-                 seo_data['title'], seo_data['description'])
+                '''INSERT INTO url_checks (url_id, status_code)
+                   VALUES (?, ?)''',
+                (id, response.status_code)
             )
             conn.commit()
             flash('Страница успешно проверена', 'success')
@@ -135,7 +117,7 @@ def check_url(id):
 def url_info(id):
     """Display information about a specific URL."""
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor = conn.cursor()
     try:
         execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
         url = cursor.fetchone()
@@ -162,7 +144,7 @@ def url_info(id):
 def urls_list():
     """Display a list of all URLs."""
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor = conn.cursor()
     try:
         execute_query(cursor, '''
             SELECT

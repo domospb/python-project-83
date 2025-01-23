@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 import sqlite3
 import psycopg2
-from psycopg2.extras import DictCursor
 
 load_dotenv()
 
@@ -22,29 +21,43 @@ def get_connection():
         return sqlite3.connect(sqlite_path)
 
 
-def get_cursor():
-    conn = get_connection()
-    if isinstance(conn, psycopg2.extensions.connection):
-        return conn.cursor(cursor_factory=DictCursor)
-    return conn.cursor()
-
-
 def init_db():
-    with app.app_context():
-        conn = get_connection()
-        cursor = get_cursor()
+    """Initialize the database."""
+    conn = get_connection()
+    try:
         with app.open_resource('database.sql', mode='r') as f:
+            sql_script = f.read()
             if isinstance(conn, sqlite3.Connection):
-                cursor.executescript(f.read())
+                # Для SQLite
+                cur = conn.cursor()
+                # Разделяем скрипт на отдельные команды
+                commands = sql_script.split(';')
+                for command in commands:
+                    if command.strip():
+                        # Заменяем SERIAL на INTEGER для SQLite
+                        command = command.replace('SERIAL', 'INTEGER')
+                        command = command.replace('TIMESTAMP', 'DATETIME')
+                        cur.execute(command)
+                cur.close()
             else:
-                cursor.execute(f.read())
-        conn.commit()
+                # Для PostgreSQL
+                cur = conn.cursor()
+                cur.execute(sql_script)
+                cur.close()
+            conn.commit()
+    except Exception as e:
+        print(f"Database initialization error: {str(e)}")
+        raise
+    finally:
         conn.close()
 
+
+# Инициализируем базу данных при запуске
+with app.app_context():
+    init_db()
 
 # Импорт маршрутов перенесен в конец файла
 from page_analyzer import routes  # noqa: E402, F401
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
