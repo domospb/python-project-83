@@ -51,7 +51,8 @@ def index():
 def add_url():
     """Add a new URL to the database."""
     url = request.form.get('url')
-            if not url:
+    
+    if not url:
         flash('URL обязателен', 'danger')
         return render_template('index.html'), 422
 
@@ -63,6 +64,7 @@ def add_url():
         response = make_response(render_template('index.html', url=url))
         response.status_code = 422
         return response
+
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -79,12 +81,12 @@ def add_url():
         cursor.execute(
             'SELECT id FROM urls WHERE name = %s',
             (normalized_url,)
-            )
+        )
         existing_url = cursor.fetchone()
         flash('Страница уже существует', 'info')
         return redirect(url_for('url_info', id=existing_url[0]))
-        finally:
-            cursor.close()
+    finally:
+        cursor.close()
         conn.close()
 
 
@@ -100,6 +102,7 @@ def check_url(id):
         if not url:
             flash('Страница не найдена', 'danger')
             return redirect(url_for('urls_list'))
+
         try:
             response = requests.get(url[0])
             response.raise_for_status()
@@ -120,8 +123,8 @@ def check_url(id):
         except Exception:
             conn.rollback()
             flash('Произошла ошибка при проверке', 'danger')
-        finally:
-            cursor.close()
+    finally:
+        cursor.close()
         conn.close()
 
     return redirect(url_for('url_info', id=id))
