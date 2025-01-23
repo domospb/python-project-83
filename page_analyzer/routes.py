@@ -57,40 +57,46 @@ def add_url():
         flash('Некорректный URL', 'danger')
         return render_template('index.html', url=url), 422
 
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            try:
-                execute_query(
-                    cursor,
-                    'INSERT INTO urls (name) VALUES (?) RETURNING id',
-                    (normalized_url,)
-                )
-                url_id = cursor.fetchone()[0]
-                conn.commit()
-                flash('Страница успешно добавлена', 'success')
-                return redirect(url_for('url_info', id=url_id))
-            except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
-                conn.rollback()
-                execute_query(
-                    cursor,
-                    'SELECT id FROM urls WHERE name = ?',
-                    (normalized_url,)
-                )
-                existing_url = cursor.fetchone()
-                flash('Страница уже существует', 'info')
-                return redirect(url_for('url_info', id=existing_url[0]))
-            except Exception as e:
-                conn.rollback()
-                flash(f'Произошла ошибка: {str(e)}', 'danger')
-                return render_template('index.html', url=url), 500
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        try:
+            execute_query(
+                cursor,
+                'INSERT INTO urls (name) VALUES (?) RETURNING id',
+                (normalized_url,)
+            )
+            url_id = cursor.fetchone()[0]
+            conn.commit()
+            flash('Страница успешно добавлена', 'success')
+            return redirect(url_for('url_info', id=url_id))
+        except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
+            conn.rollback()
+            execute_query(
+                cursor,
+                'SELECT id FROM urls WHERE name = ?',
+                (normalized_url,)
+            )
+            existing_url = cursor.fetchone()
+            flash('Страница уже существует', 'info')
+            return redirect(url_for('url_info', id=existing_url[0]))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Произошла ошибка: {str(e)}', 'danger')
+            return render_template('index.html', url=url), 500
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
 
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
     """Create a new check for the specified URL."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            # Получаем URL для проверки
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        try:
             execute_query(
                 cursor,
                 'SELECT name FROM urls WHERE id = ?',
@@ -106,10 +112,8 @@ def check_url(id):
                 response.raise_for_status()
                 status_code = response.status_code
 
-                # Извлекаем SEO-данные
                 seo_data = get_seo_data(response.text)
 
-                # Создаем запись о проверке
                 execute_query(
                     cursor,
                     '''INSERT INTO url_checks
@@ -127,6 +131,10 @@ def check_url(id):
             except Exception:
                 conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
 
     return redirect(url_for('url_info', id=id))
 
@@ -134,8 +142,10 @@ def check_url(id):
 @app.route('/urls/<int:id>')
 def url_info(id):
     """Display information about a specific URL."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        try:
             execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
             url = cursor.fetchone()
 
@@ -147,15 +157,20 @@ def url_info(id):
                 (id,)
             )
             checks = cursor.fetchall()
-
-    return render_template('url.html', url=url, checks=checks)
+            return render_template('url.html', url=url, checks=checks)
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
 
 
 @app.route('/urls')
 def urls_list():
     """Display a list of all URLs."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        try:
             execute_query(cursor, '''
                 SELECT
                     urls.*,
@@ -173,4 +188,8 @@ def urls_list():
                 ORDER BY urls.created_at DESC
             ''')
             urls = cursor.fetchall()
-    return render_template('urls.html', urls=urls)
+            return render_template('urls.html', urls=urls)
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
