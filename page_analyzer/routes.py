@@ -76,7 +76,7 @@ def add_url():
 
             if existing_url:
                 flash('Страница успешно добавлена', 'success')
-                return render_template('urls.html')
+                return redirect(url_for('urls_list'))
 
             # Add new URL if it doesn't exist
             execute_query(
@@ -84,10 +84,10 @@ def add_url():
                 'INSERT INTO urls (name) VALUES (?) RETURNING id',
                 (normalized_url,)
             )
-            cursor.fetchone()
+            new_url = cursor.fetchone()
             conn.commit()
             flash('Страница успешно добавлена', 'success')
-            return render_template('urls.html')
+            return redirect(url_for('url_info', id=new_url[0]))
 
         except Exception:
             conn.rollback()
@@ -156,6 +156,9 @@ def url_info(id):
         try:
             execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
             url = cursor.fetchone()
+            if not url:
+                flash('Страница не найдена', 'danger')
+                return redirect(url_for('urls_list'))
 
             execute_query(
                 cursor,
