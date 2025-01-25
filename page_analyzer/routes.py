@@ -45,22 +45,40 @@ def index():
     """Render the index page."""
     return render_template('index.html')
 
-
 @app.route('/urls', methods=['POST'])
 def add_url():
     """Add a new URL to the database."""
     url = request.form.get('url')
+
+    if not url:
+        flash('URL обязателен', 'danger')
+        return render_template('index.html'), 422
+
     parsed_url = urlparse(url)
     normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
     if not validators.url(normalized_url) or len(normalized_url) > 255:
         flash('Некорректный URL', 'danger')
+        # Возвращаемся на главную страницу с сохранением введенного URL
         return render_template('index.html', url=url), 422
 
     conn = get_connection()
     try:
         cursor = conn.cursor()
         try:
+            # Сначала проверяем, существует ли URL
+            execute_query(
+                cursor,
+                'SELECT id FROM urls WHERE name = ?',
+                (normalized_url,)
+            )
+            existing_url = cursor.fetchone()
+            
+            if existing_url:
+                flash('Страница уже существует', 'info')
+                return redirect(url_for('url_info', id=existing_url[0]))
+
+            # Если URL не существует, добавляем его
             execute_query(
                 cursor,
                 'INSERT INTO urls (name) VALUES (?) RETURNING id',
@@ -70,19 +88,10 @@ def add_url():
             conn.commit()
             flash('Страница успешно добавлена', 'success')
             return redirect(url_for('url_info', id=url_id))
-        except (psycopg2.errors.UniqueViolation, sqlite3.IntegrityError):
-            conn.rollback()
-            execute_query(
-                cursor,
-                'SELECT id FROM urls WHERE name = ?',
-                (normalized_url,)
-            )
-            existing_url = cursor.fetchone()
-            flash('Страница уже существует', 'info')
-            return redirect(url_for('url_info', id=existing_url[0]))
+
         except Exception as e:
             conn.rollback()
-            flash(f'Произошла ошибка: {str(e)}', 'danger')
+            flash('Произошла ошибка при добавлении страницы', 'danger')
             return render_template('index.html', url=url), 500
         finally:
             cursor.close()
