@@ -215,7 +215,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.9,<3" },
     { name = "python-dotenv", specifier = ">=1.0.1,<2" },
     { name = "requests", specifier = ">=2.31.0,<3" },
-    { name = "validators", specifier = ">=0.33.0,<0.34" },
+    { name = "validators", specifier = ">=0.33.0,<1" },
 ]
 
 [[package]]
