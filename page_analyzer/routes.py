@@ -66,7 +66,7 @@ def add_url():
     try:
         cursor = conn.cursor()
         try:
-            # Сначала проверяем, существует ли URL
+            # Check if URL exists
             execute_query(
                 cursor,
                 'SELECT id FROM urls WHERE name = ?',
@@ -75,18 +75,19 @@ def add_url():
             existing_url = cursor.fetchone()
 
             if existing_url:
-                flash('Страница уже существует', 'info')
-                return redirect(url_for('urls_list'))
+                flash('Страница успешно добавлена', 'success')
+                return redirect(url_for('url_info', id=existing_url[0]))
 
-            # Если URL не существует, добавляем его
+            # Add new URL if it doesn't exist
             execute_query(
                 cursor,
                 'INSERT INTO urls (name) VALUES (?) RETURNING id',
                 (normalized_url,)
             )
+            new_url_id = cursor.fetchone()[0]
             conn.commit()
             flash('Страница успешно добавлена', 'success')
-            return redirect(url_for('urls_list'))
+            return redirect(url_for('url_info', id=new_url_id))
 
         except Exception:
             conn.rollback()
