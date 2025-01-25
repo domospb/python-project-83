@@ -200,12 +200,3 @@ def urls_list():
             cursor.close()
     finally:
         conn.close()
-            execute_query(
-                cursor,
-                'INSERT INTO urls (name) VALUES (?) RETURNING id',
-                (normalized_url,)
-            )
-            url_id = cursor.fetchone()[0]
-            conn.commit()
-            flash('Страница успешно добавлена', 'success')
-            return redirect(url_for('url_info', id=url_id))
