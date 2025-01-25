@@ -76,7 +76,7 @@ def add_url():
 
             if existing_url:
                 flash('Страница успешно добавлена', 'success')
-                return render_template('index.html')
+                return render_template('urls.html')
 
             # Add new URL if it doesn't exist
             execute_query(
@@ -87,7 +87,7 @@ def add_url():
             cursor.fetchone()
             conn.commit()
             flash('Страница успешно добавлена', 'success')
-            return render_template('index.html')
+            return render_template('urls.html')
 
         except Exception:
             conn.rollback()
