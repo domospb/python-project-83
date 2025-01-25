@@ -85,7 +85,7 @@ def add_url():
             )
             url_id = cursor.fetchone()[0]
             conn.commit()
-            flash('Страница успешно добавлена', 'success')
+            flash('Страница успешно добавлен��', 'success')
             return redirect(url_for('url_info', id=url_id))
 
         except Exception:
