@@ -3,7 +3,6 @@ from urllib.parse import urlparse
 import validators
 import psycopg2
 import psycopg2.extras
-import sqlite3
 import requests
 from bs4 import BeautifulSoup
 from page_analyzer.app import app, get_connection
@@ -45,6 +44,7 @@ def index():
     """Render the index page."""
     return render_template('index.html')
 
+
 @app.route('/urls', methods=['POST'])
 def add_url():
     """Add a new URL to the database."""
@@ -59,7 +59,6 @@ def add_url():
 
     if not validators.url(normalized_url) or len(normalized_url) > 255:
         flash('Некорректный URL', 'danger')
-        # Возвращаемся на главную страницу с сохранением введенного URL
         return render_template('index.html', url=url), 422
 
     conn = get_connection()
@@ -73,7 +72,7 @@ def add_url():
                 (normalized_url,)
             )
             existing_url = cursor.fetchone()
-            
+
             if existing_url:
                 flash('Страница уже существует', 'info')
                 return redirect(url_for('url_info', id=existing_url[0]))
@@ -89,7 +88,7 @@ def add_url():
             flash('Страница успешно добавлена', 'success')
             return redirect(url_for('url_info', id=url_id))
 
-        except Exception as e:
+        except Exception:
             conn.rollback()
             flash('Произошла ошибка при добавлении страницы', 'danger')
             return render_template('index.html', url=url), 500
@@ -135,7 +134,6 @@ def check_url(id):
                 flash('Страница успешно проверена', 'success')
 
             except requests.RequestException:
-                conn.rollback()
                 flash('Произошла ошибка при проверке', 'danger')
             except Exception:
                 conn.rollback()
