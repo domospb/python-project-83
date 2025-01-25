@@ -76,7 +76,7 @@ def add_url():
 
             if existing_url:
                 flash('Страница успешно добавлена', 'success')
-                return redirect(url_for('urls_list'))
+                return redirect('/urls')
 
             # Add new URL if it doesn't exist
             execute_query(
@@ -84,10 +84,10 @@ def add_url():
                 'INSERT INTO urls (name) VALUES (?) RETURNING id',
                 (normalized_url,)
             )
-            new_url = cursor.fetchone()
+            cursor.fetchone()
             conn.commit()
             flash('Страница успешно добавлена', 'success')
-            return redirect(url_for('url_info', id=new_url[0]))
+            return redirect('/urls')
 
         except Exception:
             conn.rollback()
@@ -154,7 +154,11 @@ def url_info(id):
     try:
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         try:
-            execute_query(cursor, 'SELECT * FROM urls WHERE id = ?', (id,))
+            execute_query(
+                cursor,
+                'SELECT * FROM urls WHERE id = ?',
+                (id,)
+            )
             url = cursor.fetchone()
             if not url:
                 flash('Страница не найдена', 'danger')
@@ -182,22 +186,23 @@ def urls_list():
     try:
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         try:
-            execute_query(cursor, '''
-                SELECT
-                    urls.*,
-                    latest_checks.created_at as last_check_at,
-                    latest_checks.status_code as last_status_code
-                FROM urls
-                LEFT JOIN (
-                    SELECT DISTINCT ON (url_id)
-                        url_id,
-                        created_at,
-                        status_code
-                    FROM url_checks
-                    ORDER BY url_id, created_at DESC
-                ) latest_checks ON urls.id = latest_checks.url_id
-                ORDER BY urls.created_at DESC
-            ''')
+            execute_query(
+                cursor,
+                '''SELECT
+                       urls.*,
+                       latest_checks.created_at as last_check_at,
+                       latest_checks.status_code as last_status_code
+                   FROM urls
+                   LEFT JOIN (
+                       SELECT DISTINCT ON (url_id)
+                           url_id,
+                           created_at,
+                           status_code
+                       FROM url_checks
+                       ORDER BY url_id, created_at DESC
+                   ) latest_checks ON urls.id = latest_checks.url_id
+                   ORDER BY urls.created_at DESC'''
+            )
             urls = cursor.fetchall()
             return render_template('urls.html', urls=urls)
         finally:
