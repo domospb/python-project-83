@@ -55,7 +55,8 @@ def add_url():
         return render_template('index.html'), 422
 
     parsed_url = urlparse(url)
-    normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    path = parsed_url.path.rstrip('/')
+    normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}{path}"
 
     if not validators.url(normalized_url) or len(normalized_url) > 255:
         flash('Некорректный URL', 'danger')
