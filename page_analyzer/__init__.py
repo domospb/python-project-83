@@ -1,4 +1,6 @@
-from .app import app  # noqa: F401
+from .app import app
+from page_analyzer import routes  # noqa
+
 __all__ = [
     "app",
 ]
