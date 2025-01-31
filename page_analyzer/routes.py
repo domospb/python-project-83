@@ -9,30 +9,28 @@ from flask import flash, redirect, render_template, request, url_for
 from page_analyzer.app import app
 from page_analyzer.db_manager import get_db_cursor
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 
 def normalize_url(url):
-    """Normalize URL by removing path, query parameters, and fragments."""
     parsed_url = urlparse(url)
     return f'{parsed_url.scheme}://{parsed_url.netloc}'
 
 
 def get_seo_data(html_content):
-    """Extract SEO data from HTML content."""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
         h1_tag = soup.find('h1')
         title_tag = soup.find('title')
         description_tag = soup.find('meta', attrs={'name': 'description'})
 
+        desc_text = description_tag.get('content', '') if description_tag else None
+        desc_value = desc_text.strip() if desc_text else None
+
         return {
             'h1': h1_tag.text.strip() if h1_tag else None,
             'title': title_tag.text.strip() if title_tag else None,
-            'description': (
-                description_tag.get('content', '').strip() if description_tag else None
-            ),
+            'description': desc_value,
         }
     except Exception as e:
         logger.error(f'Error parsing HTML content: {str(e)}')
@@ -41,14 +39,12 @@ def get_seo_data(html_content):
 
 @app.route('/')
 def index():
-    """Render the index page."""
     logger.info('Accessing index page')
     return render_template('index.html')
 
 
 @app.route('/urls', methods=['POST'])
 def add_url():
-    """Add a new URL to the database."""
     url = request.form.get('url')
     logger.info(f'Attempting to add URL: {url}')
 
@@ -66,7 +62,9 @@ def add_url():
 
     try:
         with get_db_cursor() as cursor:
-            cursor.execute('SELECT id FROM urls WHERE name = %s', (normalized_url,))
+            query = 'SELECT id FROM urls WHERE name = %s'
+            params = (normalized_url,)
+            cursor.execute(query, params)
             existing_url = cursor.fetchone()
 
             if existing_url:
@@ -91,7 +89,6 @@ def add_url():
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
-    """Create a new check for the specified URL."""
     try:
         with get_db_cursor() as cursor:
             cursor.execute('SELECT name FROM urls WHERE id = %s', (id,))
@@ -133,7 +130,6 @@ def check_url(id):
 
 @app.route('/urls/<int:id>')
 def url_info(id):
-    """Display information about a specific URL."""
     try:
         with get_db_cursor() as cursor:
             cursor.execute('SELECT * FROM urls WHERE id = %s', (id,))
@@ -161,7 +157,6 @@ def url_info(id):
 
 @app.route('/urls')
 def urls_list():
-    """Display a list of all URLs."""
     try:
         with get_db_cursor() as cursor:
             cursor.execute(
