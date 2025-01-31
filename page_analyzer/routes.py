@@ -2,10 +2,10 @@ from flask import render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import validators
 from bs4 import BeautifulSoup
-import requests
 from page_analyzer.app import app
 from page_analyzer.db_manager import get_db_cursor
 import logging
+import requests
 
 
 # Set up logging
