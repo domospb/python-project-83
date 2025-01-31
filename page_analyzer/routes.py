@@ -12,6 +12,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def normalize_url(url):
+    """Normalize URL by removing path, query parameters, and fragments."""
+    parsed_url = urlparse(url)
+    return f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+
 def get_seo_data(html_content):
     """Extract SEO data from HTML content."""
     try:
@@ -51,9 +57,7 @@ def add_url():
         flash('URL обязателен', 'danger')
         return render_template('index.html'), 422
 
-    parsed_url = urlparse(url)
-    path = parsed_url.path.rstrip('/')
-    normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}{path}"
+    normalized_url = normalize_url(url)
 
     if not validators.url(normalized_url) or len(normalized_url) > 255:
         logger.warning(f"Invalid URL submitted: {normalized_url}")
@@ -62,6 +66,7 @@ def add_url():
 
     try:
         with get_db_cursor() as cursor:
+            # Check if URL exists
             cursor.execute(
                 'SELECT id FROM urls WHERE name = %s',
                 (normalized_url,)
@@ -73,6 +78,7 @@ def add_url():
                 flash('Страница уже существует', 'info')
                 return redirect(url_for('url_info', id=existing_url['id']))
 
+            # Add new URL
             cursor.execute(
                 'INSERT INTO urls (name) VALUES (%s) RETURNING id',
                 (normalized_url,)
@@ -99,6 +105,7 @@ def check_url(id):
             )
             url = cursor.fetchone()
             if not url:
+                logger.warning(f"URL not found for id: {id}")
                 flash('Страница не найдена', 'danger')
                 return redirect(url_for('urls_list'))
 
@@ -115,10 +122,13 @@ def check_url(id):
                     (id, status_code, seo_data['h1'],
                      seo_data['title'], seo_data['description'])
                 )
+                logger.info(f"URL check completed for id {id}")
                 flash('Страница успешно проверена', 'success')
-            except requests.RequestException:
+            except requests.RequestException as e:
+                logger.error(f"Request error checking URL: {str(e)}")
                 flash('Произошла ошибка при проверке', 'danger')
-    except Exception:
+    except Exception as e:
+        logger.error(f"Database error checking URL: {str(e)}")
         flash('Произошла ошибка при проверке', 'danger')
 
     return redirect(url_for('url_info', id=id))
@@ -132,6 +142,7 @@ def url_info(id):
             cursor.execute('SELECT * FROM urls WHERE id = %s', (id,))
             url = cursor.fetchone()
             if not url:
+                logger.warning(f"URL not found for id: {id}")
                 flash('Страница не найдена', 'danger')
                 return redirect(url_for('urls_list'))
 
@@ -142,9 +153,11 @@ def url_info(id):
                 (id,)
             )
             checks = cursor.fetchall()
+            logger.info(f"Retrieved URL info for id {id}")
             return render_template('url.html', url=url, checks=checks)
 
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error retrieving URL info: {str(e)}")
         flash('Произошла ошибка', 'danger')
         return redirect(url_for('urls_list'))
 
@@ -171,8 +184,10 @@ def urls_list():
                    ORDER BY urls.created_at DESC'''
             )
             urls = cursor.fetchall()
+            logger.info("Retrieved URLs list")
             return render_template('urls.html', urls=urls)
 
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error retrieving URLs list: {str(e)}")
         flash('Произошла ошибка при получении списка URL', 'danger')
         return redirect(url_for('index'))
