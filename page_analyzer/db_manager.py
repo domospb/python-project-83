@@ -33,8 +33,8 @@ def get_db_connection():
         if conn:
             conn.rollback()
             logger.error(
-                "Database transaction rolled back: "
-                f"{str(e)}"
+                "Database transaction rolled back. "
+                f"Error: {str(e)}"
             )
         raise
     finally:
