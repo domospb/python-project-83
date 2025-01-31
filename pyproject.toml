@@ -24,13 +24,10 @@ dependencies = [
     "pytest-cov>=4.1.0,<5"
 ]
 
-[tool.hatch.build.targets.sdist]
-include = ["page_analyzer"]
-
 [tool.hatch.build.targets.wheel]
-include = ["page_analyzer"]
+packages = ["page_analyzer"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+pythonpath = ["."]
 addopts = "-v --cov=page_analyzer"

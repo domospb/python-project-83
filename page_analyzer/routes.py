@@ -1,25 +1,10 @@
 from flask import render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import validators
-import psycopg2
-import psycopg2.extras
 import requests
 from bs4 import BeautifulSoup
-from page_analyzer.app import app, get_connection
-
-
-def execute_query(cursor, query, params=None):
-    """Execute a database query with proper error handling."""
-    try:
-        if isinstance(cursor, psycopg2.extensions.cursor):
-            query = query.replace('?', '%s')
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
-    except Exception as e:
-        print(f"Database error: {str(e)}")
-        raise
+from page_analyzer.app import app
+from page_analyzer.db_manager import get_db_cursor
 
 
 def get_seo_data(html_content):
@@ -62,53 +47,40 @@ def add_url():
         flash('Некорректный URL', 'danger')
         return render_template('index.html', url=url), 422
 
-    conn = get_connection()
     try:
-        cursor = conn.cursor()
-        try:
+        with get_db_cursor() as cursor:
             # Check if URL exists
-            execute_query(
-                cursor,
-                'SELECT id FROM urls WHERE name = ?',
+            cursor.execute(
+                'SELECT id FROM urls WHERE name = %s',
                 (normalized_url,)
             )
             existing_url = cursor.fetchone()
 
             if existing_url:
                 flash('Страница уже существует', 'info')
-                return redirect(url_for('url_info', id=existing_url[0]))
+                return redirect(url_for('url_info', id=existing_url['id']))
 
-            # Add new URL if it doesn't exist
-            execute_query(
-                cursor,
-                'INSERT INTO urls (name) VALUES (?) RETURNING id',
+            # Add new URL
+            cursor.execute(
+                'INSERT INTO urls (name) VALUES (%s) RETURNING id',
                 (normalized_url,)
             )
-            url_id = cursor.fetchone()[0]
-            conn.commit()
+            url_id = cursor.fetchone()['id']
             flash('Страница успешно добавлена', 'success')
             return redirect(url_for('url_info', id=url_id))
 
-        except Exception:
-            conn.rollback()
-            flash('Произошла ошибка при добавлении страницы', 'danger')
-            return render_template('index.html', url=url), 500
-        finally:
-            cursor.close()
-    finally:
-        conn.close()
+    except Exception:
+        flash('Произошла ошибка при добавлении страницы', 'danger')
+        return render_template('index.html', url=url), 500
 
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
     """Create a new check for the specified URL."""
-    conn = get_connection()
     try:
-        cursor = conn.cursor()
-        try:
-            execute_query(
-                cursor,
-                'SELECT name FROM urls WHERE id = ?',
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                'SELECT name FROM urls WHERE id = %s',
                 (id,)
             )
             url = cursor.fetchone()
@@ -117,32 +89,23 @@ def check_url(id):
                 return redirect(url_for('urls_list'))
 
             try:
-                response = requests.get(url[0])
+                response = requests.get(url['name'])
                 response.raise_for_status()
                 status_code = response.status_code
-
                 seo_data = get_seo_data(response.text)
 
-                execute_query(
-                    cursor,
+                cursor.execute(
                     '''INSERT INTO url_checks
                        (url_id, status_code, h1, title, description)
-                       VALUES (?, ?, ?, ?, ?)''',
+                       VALUES (%s, %s, %s, %s, %s)''',
                     (id, status_code, seo_data['h1'],
                      seo_data['title'], seo_data['description'])
                 )
-                conn.commit()
                 flash('Страница успешно проверена', 'success')
-
             except requests.RequestException:
                 flash('Произошла ошибка при проверке', 'danger')
-            except Exception:
-                conn.rollback()
-                flash('Произошла ошибка при проверке', 'danger')
-        finally:
-            cursor.close()
-    finally:
-        conn.close()
+    except Exception:
+        flash('Произошла ошибка при проверке', 'danger')
 
     return redirect(url_for('url_info', id=id))
 
@@ -150,44 +113,34 @@ def check_url(id):
 @app.route('/urls/<int:id>')
 def url_info(id):
     """Display information about a specific URL."""
-    conn = get_connection()
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        try:
-            execute_query(
-                cursor,
-                'SELECT * FROM urls WHERE id = ?',
-                (id,)
-            )
+        with get_db_cursor() as cursor:
+            cursor.execute('SELECT * FROM urls WHERE id = %s', (id,))
             url = cursor.fetchone()
             if not url:
                 flash('Страница не найдена', 'danger')
                 return redirect(url_for('urls_list'))
 
-            execute_query(
-                cursor,
+            cursor.execute(
                 '''SELECT * FROM url_checks
-                   WHERE url_id = ?
+                   WHERE url_id = %s
                    ORDER BY created_at DESC''',
                 (id,)
             )
             checks = cursor.fetchall()
             return render_template('url.html', url=url, checks=checks)
-        finally:
-            cursor.close()
-    finally:
-        conn.close()
+
+    except Exception:
+        flash('Произошла ошибка', 'danger')
+        return redirect(url_for('urls_list'))
 
 
 @app.route('/urls')
 def urls_list():
     """Display a list of all URLs."""
-    conn = get_connection()
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        try:
-            execute_query(
-                cursor,
+        with get_db_cursor() as cursor:
+            cursor.execute(
                 '''SELECT
                        urls.*,
                        latest_checks.created_at as last_check_at,
@@ -205,7 +158,7 @@ def urls_list():
             )
             urls = cursor.fetchall()
             return render_template('urls.html', urls=urls)
-        finally:
-            cursor.close()
-    finally:
-        conn.close()
+
+    except Exception:
+        flash('Произошла ошибка при получении списка URL', 'danger')
+        return redirect(url_for('index'))
