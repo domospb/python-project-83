@@ -121,4 +121,7 @@ The project uses GitHub Actions for continuous integration with two workflows:
   - Code style checks with Ruff
   - Project structure verification
 
-## Project Structure
+
+## License
+
+This project is open source and available under the MIT License.
