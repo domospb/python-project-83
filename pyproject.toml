@@ -24,33 +24,14 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["page_analyzer"]
 
-[tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "F",  # pyflakes
-    "W",  # pycodestyle warnings
-    "I",  # isort
-]
-ignore = []
+[tool.ruff]
 line-length = 80
+exclude = [".git", ".ruff_cache", ".venv", "__pycache__"]
 
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
 
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
 line-ending = "auto"
-
-# Move exclude to the top level
-[tool.ruff]
-exclude = [
-    ".git",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".ruff_cache", 
-    ".venv",
-    "__pycache__",
-    "build",
-    "dist"
-]

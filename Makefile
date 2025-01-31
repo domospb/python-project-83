@@ -7,12 +7,12 @@ setup:
 	psql -d ${DATABASE_URL} -f database.sql
 
 lint:
-	uv run ruff check ./page_analyzer
-	uv run ruff format ./page_analyzer
+	uv run ruff check .
+	uv run ruff format .
 
 fix:
-	uv run ruff check --fix ./page_analyzer
-	uv run ruff format ./page_analyzer
+	uv run ruff check --fix .
+	uv run ruff format .
 
 dev:
 	uv run flask --app page_analyzer:app run
