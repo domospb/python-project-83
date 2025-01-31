@@ -12,15 +12,44 @@ readme = "README.md"
 license = "MIT"
 dependencies = [
     "flask>=3.0.3,<4",
-    "flake8>=7.1.0,<8",
     "gunicorn>=22.0.0,<23",
-    "black>=24.8.0,<25",
     "python-dotenv>=1.0.1,<2",
     "psycopg2-binary>=2.9.9,<3",
     "validators>=0.33.0,<1",
     "requests>=2.31.0,<3",
-    "beautifulsoup4>=4.12.0,<5"
+    "beautifulsoup4>=4.12.0,<5",
+    "ruff>=0.9.4,<1"
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["page_analyzer"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "W",  # pycodestyle warnings
+    "I",  # isort
+]
+ignore = []
+line-length = 80
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "auto"
+
+# Move exclude to the top level
+[tool.ruff]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist"
+]

@@ -1,9 +1,9 @@
+import logging
+import os
 from contextlib import contextmanager
+
 import psycopg2
 from psycopg2.extras import DictCursor
-import os
-import logging
-
 
 # Set up logging
 logging.basicConfig(
@@ -11,8 +11,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('page_analyzer.log'),
-        logging.StreamHandler()
-    ]
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -28,19 +28,16 @@ def get_db_connection():
         conn = psycopg2.connect(DATABASE_URL)
         yield conn
         conn.commit()
-        logger.info("Database transaction committed successfully")
+        logger.info('Database transaction committed successfully')
     except Exception as e:
         if conn:
             conn.rollback()
-            logger.error(
-                "Database transaction rolled back. "
-                f"Error: {str(e)}"
-            )
+            logger.error(f'Database transaction rolled back. Error: {str(e)}')
         raise
     finally:
         if conn:
             conn.close()
-            logger.info("Database connection closed")
+            logger.info('Database connection closed')
 
 
 @contextmanager
