@@ -27,3 +27,7 @@ include = ["page_analyzer"]
 
 [tool.hatch.build.targets.wheel]
 include = ["page_analyzer"]
+
+[tool.pytest]
+test = "pytest --cov=page_analyzer"
+test-coverage = "pytest --cov=page_analyzer --cov-report xml"
