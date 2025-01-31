@@ -17,6 +17,7 @@ A web application that analyzes specified pages for SEO suitability. The service
 - HTTP response code tracking
 - Historical checks data storage
 - Clean and user-friendly interface
+- Comprehensive logging system
 
 ## Technology Stack
 
@@ -28,10 +29,11 @@ A web application that analyzes specified pages for SEO suitability. The service
 | UV                | Latest  |
 | Gunicorn          | 22.0.0  |
 | Python-dotenv     | 1.0.1   |
-| Psycopg2-binary   | 2.9.9  |
+| Psycopg2-binary   | 2.9.9   |
 | Validators        | 0.33.0  |
 | Requests          | 2.31.0  |
 | BeautifulSoup4    | 4.12.0  |
+| Ruff              | 0.9.4   |
 
 ## Installation
 
@@ -51,8 +53,7 @@ cd python-project-83
 
 2. Install dependencies using UV:
 ```bash
-pip install uv
-uv pip install -r requirements.txt
+make install
 ```
 
 3. Create `.env` file with required variables:
@@ -63,21 +64,21 @@ SECRET_KEY=your-secret-key
 
 4. Initialize database:
 ```bash
-python3 -m flask init-db
+make setup
 ```
 
 ## Development
 
 Start the development server:
 ```bash
-python3 -m flask run
+make dev
 ```
 
 ## Production
 
 Run with Gunicorn:
 ```bash
-gunicorn --workers=2 --bind=0.0.0.0:8000 'page_analyzer:app'
+make start
 ```
 
 ## Database Structure
@@ -97,9 +98,15 @@ The application uses two main tables (defined in `database.sql`):
   - description (TEXT)
   - created_at (TIMESTAMP)
 
-## Testing
+## Code Quality
 
-Run linter checks:
+The project maintains high code quality standards through:
+- Ruff linter for code style checking
+- Comprehensive logging system
+- Clean code practices
+- Proper error handling
+
+Run code quality checks:
 ```bash
 make lint
 ```
@@ -111,9 +118,7 @@ The project uses GitHub Actions for continuous integration with two workflows:
 - `p-83.yml`: Custom CI pipeline including:
   - Python 3.10 setup
   - UV installation and dependency management
-  - Code style checks with linter
-  - Automated testing (configured but commented out)
+  - Code style checks with Ruff
+  - Project structure verification
 
-## License
-
-This project is open source and available under the MIT License.
+## Project Structure
