@@ -7,7 +7,7 @@ setup:
 	psql -d ${DATABASE_URL} -f database.sql
 
 lint:
-	uv run flake8 ./page_analyzer
+	uv run flake8 page_analyzer/
 
 dev:
 	uv run flask --app page_analyzer:app run
