@@ -18,13 +18,15 @@ def normalize_url(url):
 
 
 def get_seo_data(html_content):
+    """Extract SEO data from HTML content."""
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
         h1_tag = soup.find('h1')
         title_tag = soup.find('title')
         description_tag = soup.find('meta', attrs={'name': 'description'})
 
-        desc_text = description_tag.get('content', '') if description_tag else None
+        has_desc = description_tag is not None
+        desc_text = description_tag.get('content', '') if has_desc else None
         desc_value = desc_text.strip() if desc_text else None
 
         return {
