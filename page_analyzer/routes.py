@@ -1,11 +1,11 @@
 from flask import render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import validators
-import requests
 from bs4 import BeautifulSoup
 from page_analyzer.app import app
 from page_analyzer.db_manager import get_db_cursor
 import logging
+import requests
 
 
 # Set up logging
@@ -66,7 +66,6 @@ def add_url():
 
     try:
         with get_db_cursor() as cursor:
-            # Check if URL exists
             cursor.execute(
                 'SELECT id FROM urls WHERE name = %s',
                 (normalized_url,)
@@ -78,7 +77,6 @@ def add_url():
                 flash('Страница уже существует', 'info')
                 return redirect(url_for('url_info', id=existing_url['id']))
 
-            # Add new URL
             cursor.execute(
                 'INSERT INTO urls (name) VALUES (%s) RETURNING id',
                 (normalized_url,)
