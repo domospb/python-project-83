@@ -8,7 +8,6 @@ from page_analyzer.db_manager import get_db_cursor
 import logging
 
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 
@@ -26,13 +25,12 @@ def get_seo_data(html_content):
         title_tag = soup.find('title')
         description_tag = soup.find('meta', attrs={'name': 'description'})
 
+        desc_content = (description_tag.get('content', '').strip()
+                       if description_tag else None)
         return {
             'h1': h1_tag.text.strip() if h1_tag else None,
             'title': title_tag.text.strip() if title_tag else None,
-            'description': (
-                description_tag.get('content', '').strip()
-                if description_tag else None
-            )
+            'description': desc_content
         }
     except Exception as e:
         logger.error(f"Error parsing HTML content: {str(e)}")
@@ -66,10 +64,8 @@ def add_url():
 
     try:
         with get_db_cursor() as cursor:
-            cursor.execute(
-                'SELECT id FROM urls WHERE name = %s',
-                (normalized_url,)
-            )
+            query = 'SELECT id FROM urls WHERE name = %s'
+            cursor.execute(query, (normalized_url,))
             existing_url = cursor.fetchone()
 
             if existing_url:

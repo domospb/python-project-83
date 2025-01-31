@@ -48,6 +48,7 @@ exclude = [
     ".git",
     ".mypy_cache",
     ".ruff_cache",
+    ".ruff_cache", 
     ".venv",
     "__pycache__",
     "build",
