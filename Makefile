@@ -9,12 +9,6 @@ setup:
 lint:
 	uv run flake8 ./page_analyzer
 
-test:
-	uv run pytest
-
-test-coverage:
-	uv run pytest --cov=page_analyzer --cov-report xml
-
 dev:
 	uv run flask --app page_analyzer:app run
 
