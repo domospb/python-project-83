@@ -1,5 +1,4 @@
-from page_analyzer.app import app, init_db
+from page_analyzer.app import app
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True)
