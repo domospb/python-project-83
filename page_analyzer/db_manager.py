@@ -5,7 +5,6 @@ from contextlib import contextmanager
 import psycopg2
 from psycopg2.extras import DictCursor
 
-# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -16,12 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv('DATABASE_URL')
-
-
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@db:5432/postgres')
 @contextmanager
 def get_db_connection():
-    """Context manager for database connections."""
     conn = None
     try:
         conn = psycopg2.connect(DATABASE_URL)
@@ -41,7 +37,6 @@ def get_db_connection():
 
 @contextmanager
 def get_db_cursor():
-    """Context manager for database cursors with DictCursor factory."""
     with get_db_connection() as conn:
         cursor = conn.cursor(cursor_factory=DictCursor)
         try:
@@ -53,26 +48,22 @@ def get_db_cursor():
 class URLRepository:
     @staticmethod
     def find_by_name(cursor, url_name):
-        """Find URL by name."""
         query = 'SELECT id FROM urls WHERE name = %s'
         cursor.execute(query, (url_name,))
         return cursor.fetchone()
 
     @staticmethod
     def create(cursor, url_name):
-        """Create new URL."""
         cursor.execute('INSERT INTO urls (name) VALUES (%s) RETURNING id', (url_name,))
         return cursor.fetchone()['id']
 
     @staticmethod
     def find_by_id(cursor, url_id):
-        """Find URL by ID."""
         cursor.execute('SELECT * FROM urls WHERE id = %s', (url_id,))
         return cursor.fetchone()
 
     @staticmethod
     def get_all_with_checks(cursor):
-        """Get all URLs with their latest checks."""
         cursor.execute(
             """SELECT
                    urls.*,
@@ -95,7 +86,6 @@ class URLRepository:
 class CheckRepository:
     @staticmethod
     def create(cursor, url_id, status_code, seo_data):
-        """Create new check."""
         cursor.execute(
             """INSERT INTO url_checks
                (url_id, status_code, h1, title, description)
@@ -111,7 +101,6 @@ class CheckRepository:
 
     @staticmethod
     def get_all_for_url(cursor, url_id):
-        """Get all checks for specific URL."""
         cursor.execute(
             """SELECT * FROM url_checks
                WHERE url_id = %s
