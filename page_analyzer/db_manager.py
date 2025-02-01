@@ -61,7 +61,8 @@ class URLRepository:
     @staticmethod
     def create(cursor, url_name):
         """Create new URL."""
-        cursor.execute('INSERT INTO urls (name) VALUES (%s) RETURNING id', (url_name,))
+        query = 'INSERT INTO urls (name) VALUES (%s) RETURNING id'
+        cursor.execute(query, (url_name,))
         return cursor.fetchone()['id']
 
     @staticmethod
