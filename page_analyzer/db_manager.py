@@ -15,7 +15,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@db:5432/postgres')
+DATABASE_URL = os.getenv(
+    'DATABASE_URL', 'postgresql://postgres:password@db:5432/postgres'
+)
+
+
 @contextmanager
 def get_db_connection():
     conn = None
@@ -54,7 +58,8 @@ class URLRepository:
 
     @staticmethod
     def create(cursor, url_name):
-        cursor.execute('INSERT INTO urls (name) VALUES (%s) RETURNING id', (url_name,))
+        query = 'INSERT INTO urls (name) VALUES (%s) RETURNING id'
+        cursor.execute(query, (url_name,))
         return cursor.fetchone()['id']
 
     @staticmethod
