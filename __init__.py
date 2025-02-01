@@ -11,6 +11,3 @@ __all__ = [
     'normalize_url',
     'validate_url',
 ]
-
-
-# ... existing code...

@@ -1,42 +1,14 @@
 import logging
-from urllib.parse import urlparse
 
 import requests
-import validators
-from bs4 import BeautifulSoup
 from flask import flash, redirect, render_template, request, url_for
 
-from page_analyzer.app import app
-from page_analyzer.db_manager import get_db_cursor
+from .app import app
+from .db_manager import URLRepository, get_db_cursor
+from .html_manager import get_seo_data
+from .validation_manager import normalize_url, validate_url
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_url(url):
-    parsed_url = urlparse(url)
-    return f'{parsed_url.scheme}://{parsed_url.netloc}'
-
-
-def get_seo_data(html_content):
-    """Extract SEO data from HTML content."""
-    try:
-        soup = BeautifulSoup(html_content, 'html.parser')
-        h1_tag = soup.find('h1')
-        title_tag = soup.find('title')
-        description_tag = soup.find('meta', attrs={'name': 'description'})
-
-        has_desc = description_tag is not None
-        desc_text = description_tag.get('content', '') if has_desc else None
-        desc_value = desc_text.strip() if desc_text else None
-
-        return {
-            'h1': h1_tag.text.strip() if h1_tag else None,
-            'title': title_tag.text.strip() if title_tag else None,
-            'description': desc_value,
-        }
-    except Exception as e:
-        logger.error(f'Error parsing HTML content: {str(e)}')
-        raise
 
 
 @app.route('/')
@@ -50,35 +22,23 @@ def add_url():
     url = request.form.get('url')
     logger.info(f'Attempting to add URL: {url}')
 
-    if not url:
-        logger.warning('Empty URL submitted')
-        flash('URL обязателен', 'danger')
-        return render_template('index.html'), 422
+    is_valid, error_message = validate_url(url)
+    if not is_valid:
+        flash(error_message, 'danger')
+        return render_template('index.html', url=url), 422
 
     normalized_url = normalize_url(url)
 
-    if not validators.url(normalized_url) or len(normalized_url) > 255:
-        logger.warning(f'Invalid URL submitted: {normalized_url}')
-        flash('Некорректный URL', 'danger')
-        return render_template('index.html', url=url), 422
-
     try:
         with get_db_cursor() as cursor:
-            query = 'SELECT id FROM urls WHERE name = %s'
-            params = (normalized_url,)
-            cursor.execute(query, params)
-            existing_url = cursor.fetchone()
+            existing_url = URLRepository.find_by_name(cursor, normalized_url)
 
             if existing_url:
                 logger.info(f'URL already exists: {normalized_url}')
                 flash('Страница уже существует', 'info')
                 return redirect(url_for('url_info', id=existing_url['id']))
 
-            cursor.execute(
-                'INSERT INTO urls (name) VALUES (%s) RETURNING id',
-                (normalized_url,),
-            )
-            url_id = cursor.fetchone()['id']
+            url_id = URLRepository.create(cursor, normalized_url)
             logger.info(f'Successfully added URL: {normalized_url}')
             flash('Страница успешно добавлена', 'success')
             return redirect(url_for('url_info', id=url_id))
